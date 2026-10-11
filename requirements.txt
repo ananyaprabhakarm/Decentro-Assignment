@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 sqlalchemy
 sqlalchemy_utils
+email-validator
 pydantic
 pytest
 httpx
