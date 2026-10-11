@@ -1,95 +1,163 @@
-from fastapi import APIRouter, Depends, HTTPException
+
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+
 from app.database.database import get_db
-from app.database.models import Group,  GroupMember, User
+from app.database.models import Group, GroupMember, User
 from app.schema.group import GroupCreate, GroupResponse
 from app.schema.user import UserResponse
 
-router = APIRouter(prefix='/group', tags=["groups"])
+router = APIRouter(prefix="/group", tags=["groups"])
 
-@router.post("/", response_model = GroupResponse)
-def createGroup(create: GroupCreate, db: Session = Depends(get_db)):
-    try:
-        new_group = Group(
-            name = create.name
+
+@router.post(
+    "/",
+    response_model=GroupResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_group(
+    create: GroupCreate,
+    db: Session = Depends(get_db),
+):
+    group = Group(name=create.name.strip())
+
+    if not group.name:
+        raise HTTPException(
+            status_code=422,
+            detail="Group name cannot be empty",
         )
-        db.add(new_group)
-        db.commit()
-        db.refresh(new_group)
-        return new_group
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail=f"Group already exists")
-  
 
-@router.get("/{group_id}", response_model = GroupResponse)
-def retrieveGroup(group_id: int, db: Session = Depends(get_db)):
-    group = db.query(Group).filter(Group.id == group_id).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    db.add(group)
+    db.commit()
+    db.refresh(group)
     return group
 
-@router.get("/{group_id}/members/{user_id}", response_model = UserResponse)
-def addUser(group_id: int, user_id: int, db: Session = Depends(get_db)):
+
+@router.get("/{group_id}", response_model=GroupResponse)
+def retrieve_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
     group = db.query(Group).filter(Group.id == group_id).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group is None:
+        raise HTTPException(404, "Group not found")
+
+    return group
+
+
+@router.post(
+    "/{group_id}/members/{user_id}",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_user(
+    group_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group is None:
+        raise HTTPException(404, "Group not found")
 
     user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    if user is None:
+        raise HTTPException(404, "User not found")
 
-    existing_member = (
-        db.query(GroupMember)
-        .filter(
-            GroupMember.group_id == group_id,
-            GroupMember.user_id == user_id
-        )
-        .first()
-    )
-
-    if existing_member:
-        raise HTTPException(
-            status_code=409,
-            detail="User is already a member of this group"
-        )
-
-    try:
-        membership = GroupMember(
-            group_id=group_id,
-            user_id=user_id
-        )
-        db.add(membership)
-        db.commit()
-        return user
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Could not add user to group"
-        )
-
-
-@router.get("/{group_id}/members/{user_id}", response_model = UserResponse)
-def deleteUser(group_id: int, user_id: int, db: Session = Depends(get_db)):
     membership = (
         db.query(GroupMember)
         .filter(
             GroupMember.group_id == group_id,
-            GroupMember.user_id == user_id
+            GroupMember.user_id == user_id,
         )
         .first()
     )
 
-    if not membership:
+    if membership:
+        if membership.is_active:
+            raise HTTPException(
+                409, "User is already a member of this group"
+            )
+
+        # Reactivate an existing membership instead of
+        # violating the unique group_id/user_id constraint.
+        membership.is_active = True
+        membership.joined_at = datetime.now(timezone.utc)
+        membership.left_at = None
+    else:
+        membership = GroupMember(
+            group_id=group_id,
+            user_id=user_id,
+            is_active=True,
+        )
+        db.add(membership)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return user
+
+
+@router.get(
+    "/{group_id}/members",
+    response_model=list[UserResponse],
+)
+def list_group_members(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group is None:
+        raise HTTPException(404, "Group not found")
+
+    return (
+        db.query(User)
+        .join(GroupMember, GroupMember.user_id == User.id)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.is_active.is_(True),
+        )
+        .order_by(User.id)
+        .all()
+    )
+
+
+@router.delete(
+    "/{group_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_user(
+    group_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    membership = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == user_id,
+            GroupMember.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if membership is None:
         raise HTTPException(
-            status_code=404,
-            detail="User is not a member of this group"
+            404, "Active group membership not found"
         )
 
-    db.delete(membership)
-    db.commit()
+    membership.is_active = False
+    membership.left_at = datetime.now(timezone.utc)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     return None
