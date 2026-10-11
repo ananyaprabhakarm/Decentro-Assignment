@@ -6,6 +6,7 @@ from app.routers.expenses import router as expenses_router
 from app.routers.users import router as user_router
 from app.routers.groups import router as groups_router
 from app.routers.settlements import router as settlements_router
+from app.routers.summary import router as summary_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,6 +16,7 @@ app.include_router(expenses_router)
 app.include_router(balance_router)
 app.include_router(groups_router)
 app.include_router(settlements_router)
+app.include_router(summary_router)
 
 
 @app.get("/", tags=["Health"])
