@@ -12,6 +12,11 @@ from app.schema.user import UserResponse
 router = APIRouter(prefix="/group", tags=["groups"])
 
 
+@router.get("/", response_model=list[GroupResponse])
+def list_groups(db: Session = Depends(get_db)):
+    return db.query(Group).order_by(Group.id).all()
+
+
 @router.post(
     "/",
     response_model=GroupResponse,
