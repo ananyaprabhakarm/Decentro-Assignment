@@ -28,6 +28,7 @@ def create_expense(expense_data: ExpenseCreate, db: Session = Depends(get_db)):
             paid_by=expense_data.paid_by,
             amount=expense_data.amount,
             description=expense_data.description,
+            splits=expense_data.splits,
         )
     except GroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found")
