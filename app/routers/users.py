@@ -19,8 +19,6 @@ def get_user(user_id: int,  db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
     
-
-
 @router.post("/", response_model = UserResponse, status_code=201)
 def create_user(create: UserCreate, db: Session = Depends(get_db)):
     try: 
