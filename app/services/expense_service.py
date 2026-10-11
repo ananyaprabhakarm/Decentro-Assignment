@@ -1,8 +1,10 @@
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.database.models import Expense, ExpenseSplit, Group, GroupMember
+from app.schema.expense import ExpenseSplitCreate
 
 
 class GroupNotFoundError(Exception):
@@ -23,6 +25,7 @@ def create_expense(
     paid_by: int,
     amount: Decimal,
     description: str,
+    splits: Optional[list[ExpenseSplitCreate]] = None,
 ) -> dict:
     group = db.query(Group).filter(Group.id == group_id).first()
     if group is None:
@@ -45,12 +48,46 @@ def create_expense(
         raise PayerNotActiveMemberError
 
     # Work in paise so uneven divisions still add up to the exact total.
-    total_paise = int(amount * 100)
-    base_paise, remainder_paise = divmod(total_paise, len(member_ids))
-    split_amounts = [
-        Decimal(base_paise + (1 if index < remainder_paise else 0)) / 100
-        for index in range(len(member_ids))
-    ]
+    
+    if splits is None:
+        # Default: split equally among active members.
+        total_paise = int(amount * 100)
+        base_paise, remainder_paise = divmod(
+            total_paise, len(member_ids)
+        )
+
+        split_records = [
+            (
+                user_id,
+                Decimal(
+                    base_paise + (1 if index < remainder_paise else 0)
+                ) / 100,
+            )
+            for index, user_id in enumerate(member_ids)
+        ]
+
+    else:
+        # Custom: validate and use the provided shares.
+        split_user_ids = [split.user_id for split in splits]
+
+        if len(split_user_ids) != len(set(split_user_ids)):
+            raise ValueError("Duplicate users in splits")
+
+        if any(user_id not in member_ids for user_id in split_user_ids):
+            raise ValueError("All split users must be active group members")
+
+        split_total = sum(
+            (split.amount for split in splits), Decimal("0")
+        )
+
+        if split_total != amount:
+            raise ValueError("Split amounts must equal expense amount")
+
+        split_records = [
+            (split.user_id, split.amount)
+            for split in splits
+        ]
+
 
     try:
         expense = Expense(
@@ -62,7 +99,7 @@ def create_expense(
         db.add(expense)
         db.flush()
 
-        for user_id, split_amount in zip(member_ids, split_amounts):
+        for user_id, split_amount in split_records:
             db.add(
                 ExpenseSplit(
                     expense_id=expense.id,
