@@ -4,12 +4,21 @@ from typing import Optional
 
 import httpx
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 
 
-API_BASE_URL = (
-    os.getenv("API_BASE_URL", "http://localhost:8000").strip().rstrip("/")
-    or "http://localhost:8000"
-)
+def get_api_base_url() -> str:
+    """Read the backend URL from the environment or Streamlit Cloud secrets."""
+    try:
+        cloud_url = st.secrets.get("API_BASE_URL")
+    except StreamlitSecretNotFoundError:
+        cloud_url = None
+
+    configured_url = os.getenv("API_BASE_URL") or cloud_url
+    return (configured_url or "http://localhost:8000").strip().rstrip("/")
+
+
+API_BASE_URL = get_api_base_url()
 API_TIMEOUT_SECONDS = 20.0
 
 
