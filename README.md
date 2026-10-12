@@ -110,6 +110,21 @@ streamlit run streamlit_app.py
 pytest -v
 ```
 
+## Deploy the Streamlit UI
+
+1. Push the project to GitHub and make sure `streamlit_app.py` and `requirements.txt` are in the repository root.
+2. In [Streamlit Community Cloud](https://share.streamlit.io/), choose **Create app**, then select this repository, the branch to deploy, and `streamlit_app.py` as the app file.
+3. In the app's **Advanced settings → Secrets**, set the URL of your deployed Render backend:
+
+   ```toml
+   API_BASE_URL = "https://your-render-service.onrender.com"
+   ```
+
+   Use the Render service's public HTTPS base URL, without `/docs` or an API path. The UI reads this value from Streamlit secrets; locally it can still use the `API_BASE_URL` environment variable or default to `http://localhost:8000`.
+4. Save and deploy the app. Later pushes to the selected GitHub branch update the UI.
+
+Keep `GEMINI_API_KEY` configured on the Render backend only. The Streamlit UI does not need the Gemini key; it calls the FastAPI service, which owns Gemini access.
+
 ## Database Design
 
 | Table           | Purpose                                 |
