@@ -2,6 +2,8 @@
 
 A Splitwise-inspired expense-sharing application built using FastAPI, SQLAlchemy, SQLite, and Streamlit. Supports group expenses, equal and custom splits, balance calculation, settlements, and AI-powered expense summaries using Google Gemini.
 
+Live link: https://splitwise12.streamlit.app/
+
 ## Features
 
 - User and group management
