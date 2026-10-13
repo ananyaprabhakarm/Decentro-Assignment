@@ -49,83 +49,35 @@ Summary Service ---> Gemini API
 
 The backend handles validation, financial calculations, and database operations. Streamlit communicates with FastAPI, while Gemini generates natural-language summaries from backend-calculated statistics.
 
-## Run Locally
+## Quick Start (Docker)
 
-### 1. Clone the repository
+### Prerequisites
+- Docker Desktop
+- A Gemini API key for AI summaries
 
+### Setup
+
+1. Clone the repository.
+2. Create a `.env` file in the project root.
+3. Add your Gemini API key:
 ```bash
-git clone https://github.com/ananyaprabhakarm/Decentro-Assignment.git
-cd Decentro-Assignment
+   GEMINI_API_KEY=your_gemini_api_key
 ```
-
-### 2. Create a virtual environment
-
+4. Build and start the application:
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+   docker compose up --build
 ```
+### Access the application
+- Frontend: http://localhost:8501
+- API documentation: http://localhost:8000/docs
 
-For Windows PowerShell:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-
+### Stop the application
 ```bash
-pip install -r requirements.txt
+docker compose down
 ```
-
-### 4. Configure environment variables
-
-Configure the following variables in your environment:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-API_BASE_URL=http://localhost:8000
-```
-
-Keep your actual API key private. A `.env` file requires an environment-variable loader to be loaded automatically.
-
-### 5. Start the backend
-
-```bash
-uvicorn app.main:app --reload
-```
-
-API: <http://127.0.0.1:8000>
-
-Interactive API documentation: <http://127.0.0.1:8000/docs>
-
-### 6. Start the frontend
-
-Open a second terminal, activate the virtual environment, and run:
-
-```bash
-streamlit run streamlit_app.py
-```
-
-### 7. Run tests
-
-```bash
-pytest -v
-```
-
-## Deploy the Streamlit UI
-
-1. Push the project to GitHub and make sure `streamlit_app.py` and `requirements.txt` are in the repository root.
-2. In [Streamlit Community Cloud](https://share.streamlit.io/), choose **Create app**, then select this repository, the branch to deploy, and `streamlit_app.py` as the app file.
-3. In the app's **Advanced settings → Secrets**, set the URL of your deployed Render backend:
-
-   ```toml
-   API_BASE_URL = "https://your-render-service.onrender.com"
-   ```
-
-   Use the Render service's public HTTPS base URL, without `/docs` or an API path. The UI reads this value from Streamlit secrets; locally it can still use the `API_BASE_URL` environment variable or default to `http://localhost:8000`.
-4. Save and deploy the app. Later pushes to the selected GitHub branch update the UI.
-
-Keep `GEMINI_API_KEY` configured on the Render backend only. The Streamlit UI does not need the Gemini key; it calls the FastAPI service, which owns Gemini access.
+## Configuration
+See `.env.example` for the required environment variables.
+The SQLite database is stored in a persistent Docker volume.
 
 ## Database Design
 
