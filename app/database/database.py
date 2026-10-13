@@ -1,14 +1,30 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_URL = 'sqlite:///./expense_sharing.db'
-engine = create_engine(SQLALCHEMY_URL, connect_args = {"check_same_thread": False})
+SQLALCHEMY_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./expense_sharing.db"
+)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+engine = create_engine(
+    SQLALCHEMY_URL,
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False
+)
+
 Base = declarative_base()
 
+
 def get_db():
-    """Get the database connection from session"""
+    """Get the database connection from session."""
     db = SessionLocal()
     try:
         yield db
